@@ -1,0 +1,8 @@
+[package]
+name = "localproxy"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1.42.0", features = ["full"] }
+tokio-socks = "0.5.2"
