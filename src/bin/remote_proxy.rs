@@ -1,7 +1,10 @@
-use std::{fs, net::SocketAddr, sync::Arc};
+use std::{fs, net::SocketAddr, sync::Arc, time::Duration};
+use tokio::{net::TcpStream, time::timeout};
 
-use quinn::{crypto::rustls::QuicServerConfig, Endpoint};
+use localproxy::{ResponseCode, SOCKSReq, SocksReply};
+use quinn::{crypto::rustls::QuicServerConfig, SendStream, RecvStream};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
+
 
 
 #[tokio::main]
@@ -28,7 +31,69 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Sync + Send>> {
 
     // in our test, there is only one local connection. Thus no need while loop
     if let Some(conn) = endpoint.accept().await {
-        todo!("handle connection, deal with streams, and then parse SOCKS5")
+        // todo!("handle connection, deal with streams, and then parse SOCKS5")
+        let connection = conn.await?;
+        loop {
+            let stream = connection.accept_bi().await?;
+            tokio::spawn(handle_socks_stream(stream));
+        }
+    }
+
+    Ok(())
+}
+
+
+async fn handle_socks_stream(
+    stream: (SendStream, RecvStream)
+) -> Result<(), Box<dyn std::error::Error + Sync + Send>> {
+    let (mut server_write, mut server_read) = stream;
+    
+    let socks_req = SOCKSReq::from_quinn_recv_stream(&mut server_read).await?;
+    match socks_req.command {
+        localproxy::SockCommand::Connect => {
+            println!("Connecting to {:?}", socks_req.addr);
+
+            let sock_addr = localproxy::addr_to_socket(&socks_req.addr_type, &socks_req.addr, socks_req.port).await?;
+            let time_out = Duration::from_millis(500);
+
+            let mut target =
+                timeout(
+                    time_out,
+                    async move { TcpStream::connect(&sock_addr[..]).await },
+                )
+                .await
+                .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidInput, "timeout"))??;
+            let (mut target_read, mut target_write) = target.split();
+            
+
+            SocksReply::new(ResponseCode::Success)
+                .send_quinn(&mut server_write)
+                .await?;
+
+            let up_channal = tokio::io::copy(&mut server_read, &mut target_write);
+            let down_channal = tokio::io::copy(&mut target_read, &mut server_write);
+            match tokio::join!(up_channal, down_channal) {
+                (Ok(_), Ok(_)) => (),
+                (Err(e), _) | (_, Err(e)) => {
+                    println!("Error in data transfer: {:?}", e);
+                }
+            }
+
+            // match tokio::io::copy_bidirectional(&mut self.stream, &mut target).await {
+            //     // ignore not connected for shutdown error
+            //     Err(e) if e.kind() == std::io::ErrorKind::NotConnected => {
+            //         return Ok(0);
+            //     },
+            //     Err(e) => Err(Box::new(std::io::Error::new(std::io::ErrorKind::Other, e))),
+            //     Ok((_s_to_t, t_to_s)) => Ok(t_to_s as usize),
+            // }
+        },
+        localproxy::SockCommand::Bind => {
+            return Err(Box::new(std::io::Error::new(std::io::ErrorKind::InvalidInput, "Bind not supported")));
+        },
+        localproxy::SockCommand::UdpAssosiate => {
+            return Err(Box::new(std::io::Error::new(std::io::ErrorKind::InvalidInput, "UDP not supported")));
+        },
     }
 
     Ok(())

@@ -1,8 +1,8 @@
-use core::error;
-use std::f32::consts::E;
+// use core::error;
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
 // use std::os::windows::io::InvalidHandleError;
 use std::time::Duration;
+use quinn::{RecvStream, SendStream};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncReadExt, AsyncWriteExt};
 use tokio::net::{lookup_host, TcpStream};
 use tokio::time::timeout;
@@ -177,7 +177,7 @@ where T: AsyncRead + AsyncWrite + Send + Unpin + 'static
 
 
 
-struct SOCKSReq {
+pub struct SOCKSReq {
     pub version: u8,
     pub command: SockCommand,
     pub addr_type: AddrType,
@@ -186,7 +186,7 @@ struct SOCKSReq {
 }
 
 
-enum SockCommand {
+pub enum SockCommand {
     Connect = 0x01,
     Bind = 0x02,
     UdpAssosiate = 0x3,
@@ -206,7 +206,7 @@ impl SockCommand {
 
 /// DST.addr variant types
 #[derive(PartialEq)]
-enum AddrType {
+pub enum AddrType {
     /// IP V4 address: X'01'
     V4 = 0x01,
     /// DOMAINNAME: X'03'
@@ -324,17 +324,132 @@ impl SOCKSReq {
             port,
         })
     }
+
+
+    pub async fn from_quinn_recv_stream(stream: &mut RecvStream) -> Result<Self, std::io::Error> {
+        let mut packet = [0u8; 4];
+        match stream.read_exact(&mut packet).await {
+            Ok(_) => (),
+            Err(e) => {
+                return Err(std::io::Error::new(std::io::ErrorKind::Other, e));
+            }
+        };
+
+        if packet[0] != SOCKS_VERSION {
+            // later need more specific error defination
+            match stream.stop(0u32.into()) {
+                Ok(_) => {
+                    return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid version"));
+                },
+                Err(e) => {
+                    return Err(std::io::Error::new(std::io::ErrorKind::Other, e));
+                }                
+            }
+        }
+
+        // Get command
+        let command = match SockCommand::from(packet[1] as usize) {
+            Some(com) => com,
+            None => {
+                match stream.stop(0u32.into()) {
+                    Ok(_) => {
+                        return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid command"));
+                    },
+                    Err(e) => {
+                        return Err(std::io::Error::new(std::io::ErrorKind::Other, e));
+                    }                
+                };
+            }
+        };
+
+        let addr_type = match AddrType::from(packet[3] as usize) {
+            Some(addr) => addr,
+            None => {
+                match stream.stop(0u32.into()) {
+                    Ok(_) => {
+                        return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid address type"));
+                    },
+                    Err(e) => {
+                        return Err(std::io::Error::new(std::io::ErrorKind::Other, e));
+                    }
+                };
+            }
+        };
+
+        // Get Addr from addr_type and stream
+        let addr: Vec<u8> = match addr_type {
+            AddrType::Domain => {
+                let mut dlen = [0u8; 1];
+                match stream.read_exact(&mut dlen).await {
+                    Ok(_) => (),
+                    Err(e) => {
+                        return Err(std::io::Error::new(std::io::ErrorKind::Other, e));
+                    }
+                };
+                let mut domain = vec![0u8; dlen[0] as usize];
+                match stream.read_exact(&mut domain).await {
+                    Ok(_) => (),
+                    Err(e) => {
+                        return Err(std::io::Error::new(std::io::ErrorKind::Other, e));
+                    }
+                };
+                domain
+            }
+            AddrType::V4 => {
+                let mut addr = [0u8; 4];
+                match stream.read_exact(&mut addr).await {
+                    Ok(_) => (),
+                    Err(e) => {
+                        return Err(std::io::Error::new(std::io::ErrorKind::Other, e));
+                    }
+                };
+                addr.to_vec()
+            }
+            AddrType::V6 => {
+                let mut addr = [0u8; 16];
+                match stream.read_exact(&mut addr).await {
+                    Ok(_) => (),
+                    Err(e) => {
+                        return Err(std::io::Error::new(std::io::ErrorKind::Other, e));
+                    }
+                };
+                addr.to_vec()
+            }
+        };
+
+        // read DST.port
+        let mut port = [0u8; 2];
+        match stream.read_exact(&mut port).await {
+            Ok(_) => (),
+            Err(e) => {
+                return Err(std::io::Error::new(std::io::ErrorKind::Other, e));
+            }
+        };
+
+        // Merge two u8s into u16
+        let port = (u16::from(port[0]) << 8) | u16::from(port[1]);
+
+        // Return parsed request
+        Ok(SOCKSReq {
+            version: packet[0],
+            command,
+            addr_type,
+            addr,
+            port,
+        })
+    }
 }
 
 
 
 /// Convert an address and AddrType to a SocketAddr
-async fn addr_to_socket(addr_type: &AddrType, addr: &[u8], port: u16) -> Result<Vec<SocketAddr>, std::io::Error> {
+pub async fn addr_to_socket(addr_type: &AddrType, addr: &[u8], port: u16) -> Result<Vec<SocketAddr>, std::io::Error> {
     match addr_type {
         AddrType::V6 => {
             let new_addr = (0..8)
                 .map(|x| {
-                    (u16::from(addr[(x * 2)]) << 8) | u16::from(addr[(x * 2) + 1])
+                    // (u16::from(addr[(x * 2)]) << 8) | u16::from(addr[(x * 2) + 1])
+                    (u16::from(addr[x * 2]) << 8) | u16::from(addr[(x * 2) + 1])
                 })
                 .collect::<Vec<u16>>();
 
@@ -432,6 +547,11 @@ impl SocksReply {
     where
         T: AsyncRead + AsyncWrite + Send + Unpin + 'static,
     {
+        stream.write_all(&self.buf[..]).await?;
+        Ok(())
+    }
+
+    pub async fn send_quinn(&self, stream: &mut SendStream) -> std::io::Result<()> {
         stream.write_all(&self.buf[..]).await?;
         Ok(())
     }
