@@ -7,6 +7,7 @@ use tokio::io::{AsyncRead, AsyncWrite, AsyncReadExt, AsyncWriteExt};
 use tokio::net::{lookup_host, TcpStream};
 use tokio::time::timeout;
 
+pub mod local_quic;
 
 
 // SOCKS5 protocol version
@@ -17,7 +18,7 @@ const RESERVED: u8 = 0x00;
 
 
 pub struct SOCKClient<T: AsyncRead + AsyncWrite + Send + Unpin + 'static> {
-    stream: T,
+    pub stream: T,
     auth_nmethods: u8,
     socks_version: u8,
     timeout: Option<Duration>,
@@ -39,13 +40,13 @@ where T: AsyncRead + AsyncWrite + Send + Unpin + 'static
     }
 
 
-    pub async fn shutdown(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn shutdown(&mut self) -> Result<(), Box<dyn std::error::Error + Sync + Send>> {
         self.stream.shutdown().await?;
         Ok(())
     }
 
 
-    pub async fn init(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn init(&mut self) -> Result<(), Box<dyn std::error::Error + Sync + Send>> {
         print!("Client connected\n");
         let mut header = [0u8; 2];
         self.stream.read_exact(&mut header).await?;
@@ -67,8 +68,33 @@ where T: AsyncRead + AsyncWrite + Send + Unpin + 'static
         Ok(())
     }
 
+    /// this function only takes partial functionality of init.
+    /// It only checks the validaty and authentication of socks client request,
+    /// and then return the valid socks version for future processing.
+    pub async fn local_init(&mut self) -> Result<(), Box<dyn std::error::Error + Sync + Send>> {
+        print!("Client connected\n");
+        let mut header = [0u8; 2];
+        self.stream.read_exact(&mut header).await?;
+        print!("Header: {:?}\n", header);
 
-    async fn auth(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        self.socks_version = header[0];
+        self.auth_nmethods = header[1];
+
+        match self.socks_version {
+            SOCKS_VERSION => {
+                self.auth().await?;
+                // self.handle_client().await?;
+            }
+            _ => {
+                self.shutdown().await?;
+            }
+        }
+
+        Ok(())
+    }
+
+
+    async fn auth(&mut self) -> Result<(), Box<dyn std::error::Error + Sync + Send>> {
         // no auth at this time
         let methods = self.get_avalible_methods().await?;
         print!("Methods: {:?}\n", methods);
@@ -85,7 +111,9 @@ where T: AsyncRead + AsyncWrite + Send + Unpin + 'static
     }
 
 
-    async fn handle_client(&mut self) -> Result<usize, Box<dyn std::error::Error>> {
+
+
+    async fn handle_client(&mut self) -> Result<usize, Box<dyn std::error::Error + Sync + Send>> {
         let req = SOCKSReq::from_stream(&mut self.stream).await?;
 
         // Respond
@@ -133,7 +161,7 @@ where T: AsyncRead + AsyncWrite + Send + Unpin + 'static
     }
 
 
-    async fn get_avalible_methods(&mut self) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    async fn get_avalible_methods(&mut self) -> Result<Vec<u8>, Box<dyn std::error::Error + Sync + Send>> {
         let mut methods: Vec<u8> = Vec::with_capacity(self.auth_nmethods as usize);
         for _ in 0..self.auth_nmethods {
             let mut method = [0u8; 1];
