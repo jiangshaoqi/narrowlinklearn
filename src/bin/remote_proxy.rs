@@ -1,4 +1,4 @@
-use std::{fs, net::SocketAddr, sync::Arc, time::Duration};
+use std::{fs, net::SocketAddr, path, sync::Arc, time::Duration};
 use tokio::{net::TcpStream, time::timeout};
 
 use localproxy::{ResponseCode, SOCKSReq, SocksReply};
@@ -9,14 +9,23 @@ use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Sync + Send>> {
+
+    rustls::crypto::aws_lc_rs::default_provider().install_default().expect("install aws lc provider failed");
     
     // load dummy cert and key
+    if path::Path::new("dummycert.der").exists() == false || path::Path::new("dummykey.der").exists() == false {
+        let cert = rcgen::generate_simple_self_signed(vec!["localhost".into()])?;
+        let key = PrivatePkcs8KeyDer::from(cert.key_pair.serialize_der());
+        let cert: CertificateDer = cert.cert.into();
+        fs::write("dummycert.der", &cert)?;
+        fs::write("dummykey.der", key.secret_pkcs8_der())?;
+    }
     let cert_file = fs::read("dummycert.der")?;
     let dummy_cert = vec![CertificateDer::from(cert_file)];
     let key_file = fs::read("dummykey.der")?;
     let dummy_key = PrivateKeyDer::try_from(key_file)?;
 
-    let mut server_crypto = rustls::ServerConfig::builder()
+    let server_crypto = rustls::ServerConfig::builder()
         .with_no_client_auth()
         .with_single_cert(dummy_cert, dummy_key)?;
 
@@ -31,6 +40,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Sync + Send>> {
 
     // in our test, there is only one local connection. Thus no need while loop
     if let Some(conn) = endpoint.accept().await {
+        println!("waiting for connection");
         // todo!("handle connection, deal with streams, and then parse SOCKS5")
         let connection = conn.await?;
         loop {

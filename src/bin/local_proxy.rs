@@ -1,4 +1,4 @@
-use std::{net::ToSocketAddrs, sync::Arc, time::Duration};
+use std::{net::ToSocketAddrs, sync::Arc};
 use tokio::net::{TcpListener, TcpStream};
 use quinn::{Endpoint, RecvStream, SendStream};
 
@@ -11,6 +11,8 @@ use localproxy::local_quic::NoCertificateVerification;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+
+    rustls::crypto::aws_lc_rs::default_provider().install_default().expect("install aws lc provider failed");
 
     // quic setting up, connect to remote proxy
     let remote_proxy_addr = "127.0.0.1:1081"
@@ -37,7 +39,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         tokio::spawn(handle_socks_stream(client_stream, remote_proxy_channel));
     }
 
-    Ok(())
+    // Ok(())
 }
 
 

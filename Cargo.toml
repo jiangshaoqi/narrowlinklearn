@@ -8,6 +8,7 @@ quinn = { version = "0.11.6", default-features = false, features = [
     "runtime-tokio",
     "rustls",
 ]}
+rcgen = { version = "0.13.2", features = ["x509-parser", "crypto"] }
 rustls = { version = "0.23.20", default-features = true }
 tokio = { version = "1.42.0", features = ["full"] }
 tokio-socks = "0.5.2"
