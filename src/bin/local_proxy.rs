@@ -28,6 +28,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         quinn::crypto::rustls::QuicClientConfig::try_from(crypto_config)?,
     ));
     endpoint.set_default_client_config(client_config);
+    print!("Connecting to remote proxy...");
     let conn = endpoint.connect(remote_proxy_addr, "localhost")?.await?;
 
 
@@ -39,7 +40,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         tokio::spawn(handle_socks_stream(client_stream, remote_proxy_channel));
     }
 
-    // Ok(())
+    Ok(())
 }
 
 

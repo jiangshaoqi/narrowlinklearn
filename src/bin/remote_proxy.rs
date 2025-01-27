@@ -2,7 +2,7 @@ use std::{fs, net::SocketAddr, path, sync::Arc, time::Duration};
 use tokio::{net::TcpStream, time::timeout};
 
 use localproxy::{ResponseCode, SOCKSReq, SocksReply};
-use quinn::{crypto::rustls::QuicServerConfig, SendStream, RecvStream};
+use quinn::{crypto::rustls::QuicServerConfig, RecvStream, SendStream};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
 
 
@@ -32,7 +32,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Sync + Send>> {
     let mut server_config =
         quinn::ServerConfig::with_crypto(Arc::new(QuicServerConfig::try_from(server_crypto)?));
     let transport_config = Arc::get_mut(&mut server_config.transport).unwrap();
-    transport_config.max_concurrent_uni_streams(0_u8.into());
+    transport_config.max_concurrent_uni_streams(0_u8.into())
+        // this is alpha feature, need to polish
+        .keep_alive_interval(Some(Duration::from_secs(5)));
 
     // hardcode setting, to match the remote proxy in local_proxy
     let server_addr: SocketAddr = "127.0.0.1:1081".parse()?;
@@ -41,7 +43,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Sync + Send>> {
     // in our test, there is only one local connection. Thus no need while loop
     if let Some(conn) = endpoint.accept().await {
         println!("waiting for connection");
-        // todo!("handle connection, deal with streams, and then parse SOCKS5")
+        // handle connection, deal with streams, and then parse SOCKS5
         let connection = conn.await?;
         loop {
             let stream = connection.accept_bi().await?;
