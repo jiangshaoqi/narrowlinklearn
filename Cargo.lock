@@ -417,6 +417,7 @@ dependencies = [
  "quinn",
  "rcgen",
  "rustls",
+ "time",
  "tokio",
  "tokio-socks",
 ]

@@ -30,15 +30,40 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     endpoint.set_default_client_config(client_config);
     print!("Connecting to remote proxy...");
     let conn = endpoint.connect(remote_proxy_addr, "localhost")?.await?;
+    let conn = Arc::new(conn);
+    let conn_clone = Arc::clone(&conn);
 
+    let ctrl_c = async {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("cannot get ctrl + c");
+        println!("Stopping local proxy");
+    };
+
+    tokio::select! {
+        _ = async {
+            let listener = TcpListener::bind("127.0.0.1:1080").await?;
+            loop {
+                let (client_stream, _) = listener.accept().await?;
+                let remote_proxy_channel = conn.open_bi().await?;
+                tokio::spawn(handle_socks_stream(client_stream, remote_proxy_channel));
+            }
+            #[allow(unreachable_code)]
+            Ok::<(), Box<dyn std::error::Error + Send + Sync>>(())
+        } => {},
+        _ = ctrl_c => { 
+            conn_clone.close(0u32.into(), b"gracefully shutdown");
+            println!("client stop successfully");
+        }
+    }
 
     // local socks proxy, wait for browser to connect
-    let listener = TcpListener::bind("127.0.0.1:1080").await?;
-    loop {
-        let (client_stream, _) = listener.accept().await?;
-        let remote_proxy_channel = conn.open_bi().await?;
-        tokio::spawn(handle_socks_stream(client_stream, remote_proxy_channel));
-    }
+    // let listener = TcpListener::bind("127.0.0.1:1080").await?;
+    // loop {
+    //     let (client_stream, _) = listener.accept().await?;
+    //     let remote_proxy_channel = conn.open_bi().await?;
+    //     tokio::spawn(handle_socks_stream(client_stream, remote_proxy_channel));
+    // }
 
     Ok(())
 }

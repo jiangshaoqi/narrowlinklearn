@@ -12,6 +12,7 @@ rcgen = { version = "0.13.2", features = ["x509-parser", "crypto"] }
 rustls = { version = "0.23.20", default-features = true }
 tokio = { version = "1.42.0", features = ["full"] }
 tokio-socks = "0.5.2"
+time = "0.3.37"
 
 [[bin]]
 name = "localproxy"
@@ -20,3 +21,7 @@ path = "src/bin/local_proxy.rs"
 [[bin]]
 name = "remoteproxy"
 path = "src/bin/remote_proxy.rs"
+
+[[bin]]
+name = "certgenerate"
+path = "src/bin/cert_generate.rs"
