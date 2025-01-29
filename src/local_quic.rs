@@ -1,5 +1,6 @@
 use rustls::{client::danger::ServerCertVerifier, SignatureScheme};
 
+
 // Custom certificate verifier that skips verification
 #[derive(Debug)]
 pub struct NoCertificateVerification;

@@ -29,6 +29,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Sync + Send>> {
         .with_no_client_auth()
         .with_single_cert(dummy_cert, dummy_key)?;
 
+    
+
     let mut server_config =
         quinn::ServerConfig::with_crypto(Arc::new(QuicServerConfig::try_from(server_crypto)?));
     let transport_config = Arc::get_mut(&mut server_config.transport).unwrap();

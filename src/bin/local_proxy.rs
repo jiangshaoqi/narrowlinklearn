@@ -1,4 +1,6 @@
+use std::fs;
 use std::{net::ToSocketAddrs, sync::Arc};
+use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use tokio::net::{TcpListener, TcpStream};
 use quinn::{Endpoint, RecvStream, SendStream};
 
@@ -20,10 +22,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         .next()
         .expect("could not resolve remote proxy address");
     let mut endpoint = Endpoint::client((std::net::Ipv4Addr::UNSPECIFIED, 0).into())?;
+
+    // only for testing, disable the certificate verification
+    // let crypto_config = rustls::ClientConfig::builder()
+    //     .dangerous()
+    //     .with_custom_certificate_verifier(Arc::new(NoCertificateVerification));
+
+    // fix the certificate store only for proxy
+    let mut root_store = rustls::RootCertStore::empty();
+    let ca_cert_name = "wciscert.der";
+    let ca_cert = fs::read(ca_cert_name).expect("cannot read ca cert");
+    let ca_cert = CertificateDer::from(ca_cert);
+    root_store.add(ca_cert).expect("cannot add ca cert to store");
+    // client cert and client key
+    let client_cert_name = "wcis_client_cert.der";
+    let client_cert = fs::read(client_cert_name).expect("cannot read client cert");
+    let client_cert = CertificateDer::from(client_cert);
+    let client_key_name = "wcis_client_key.der";
+    let client_key = fs::read(client_key_name).expect("cannot read client key");
+    let client_key = PrivateKeyDer::try_from(client_key).expect("cannot convert to private key");
     let crypto_config = rustls::ClientConfig::builder()
-        .dangerous()
-        .with_custom_certificate_verifier(Arc::new(NoCertificateVerification))
-        .with_no_client_auth();
+        .with_root_certificates(root_store)
+        .with_client_auth_cert(vec![client_cert], client_key)
+        .expect("cannot build crypto config");
+
     let client_config = quinn::ClientConfig::new(Arc::new(
         quinn::crypto::rustls::QuicClientConfig::try_from(crypto_config)?,
     ));
