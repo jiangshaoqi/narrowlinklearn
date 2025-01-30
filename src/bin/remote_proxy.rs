@@ -1,9 +1,9 @@
-use std::{fs, net::SocketAddr, path, sync::Arc, time::Duration};
+use std::{fs, net::SocketAddr, sync::Arc, time::Duration};
 use tokio::{net::TcpStream, time::timeout};
 
-use localproxy::{ResponseCode, SOCKSReq, SocksReply};
+use localproxy::{local_quic::OneCertVerification, ResponseCode, SOCKSReq, SocksReply};
 use quinn::{crypto::rustls::QuicServerConfig, RecvStream, SendStream};
-use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
+use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 
 
 
@@ -13,29 +13,37 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Sync + Send>> {
     rustls::crypto::aws_lc_rs::default_provider().install_default().expect("install aws lc provider failed");
     
     // load dummy cert and key
-    if path::Path::new("dummycert.der").exists() == false || path::Path::new("dummykey.der").exists() == false {
-        let cert = rcgen::generate_simple_self_signed(vec!["localhost".into()])?;
-        let key = PrivatePkcs8KeyDer::from(cert.key_pair.serialize_der());
-        let cert: CertificateDer = cert.cert.into();
-        fs::write("dummycert.der", &cert)?;
-        fs::write("dummykey.der", key.secret_pkcs8_der())?;
-    }
-    let cert_file = fs::read("dummycert.der")?;
-    let dummy_cert = vec![CertificateDer::from(cert_file)];
-    let key_file = fs::read("dummykey.der")?;
-    let dummy_key = PrivateKeyDer::try_from(key_file)?;
+    // if path::Path::new("dummycert.der").exists() == false || path::Path::new("dummykey.der").exists() == false {
+    //     let cert = rcgen::generate_simple_self_signed(vec!["localhost".into()])?;
+    //     let key = PrivatePkcs8KeyDer::from(cert.key_pair.serialize_der());
+    //     let cert: CertificateDer = cert.cert.into();
+    //     fs::write("dummycert.der", &cert)?;
+    //     fs::write("dummykey.der", key.secret_pkcs8_der())?;
+    // }
+    // let cert_file = fs::read("dummycert.der")?;
+    // let dummy_cert = vec![CertificateDer::from(cert_file)];
+    // let key_file = fs::read("dummykey.der")?;
+    // let dummy_key = PrivateKeyDer::try_from(key_file)?;
+
+    // let server_crypto = rustls::ServerConfig::builder()
+    //     .with_no_client_auth()
+    //     .with_single_cert(dummy_cert, dummy_key)?;
+
+    let cert_file = fs::read("wcis_server_cert.der")?;
+    let server_cert = vec![CertificateDer::from(cert_file)];
+    let key_file = fs::read("wcis_server_key.der")?;
+    let server_key = PrivateKeyDer::try_from(key_file)?;
+
+    let ca_cert_path = "wciscert.der";
 
     let server_crypto = rustls::ServerConfig::builder()
-        .with_no_client_auth()
-        .with_single_cert(dummy_cert, dummy_key)?;
-
-    
+        .with_client_cert_verifier(Arc::new(OneCertVerification::new(ca_cert_path)))
+        .with_single_cert(server_cert, server_key)?;
 
     let mut server_config =
         quinn::ServerConfig::with_crypto(Arc::new(QuicServerConfig::try_from(server_crypto)?));
     let transport_config = Arc::get_mut(&mut server_config.transport).unwrap();
     transport_config.max_concurrent_uni_streams(0_u8.into())
-        // this is alpha feature, need to polish
         .keep_alive_interval(Some(Duration::from_secs(5)));
 
     // hardcode setting, to match the remote proxy in local_proxy
