@@ -15,8 +15,7 @@ use localproxy::SOCKClient;
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     rustls::crypto::aws_lc_rs::default_provider().install_default().expect("install aws lc provider failed");
-    
-    // args[1] is the remote proxy address
+
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 2 {
         println!("Usage: local_proxy less than 2 arguments");
@@ -24,7 +23,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     }
 
     // quic setting up, connect to remote proxy
-    let remote_proxy_addr = &args[1]
+    // let remote_proxy_addr = "127.0.0.1:1081"
+    // let remote_proxy_addr = "20.83.146.179:443"
+    //     .to_socket_addrs()?
+    //     .next()
+    //     .expect("could not resolve remote proxy address");
+    let remote_proxy_addr = args[1]
         .to_socket_addrs()?
         .next()
         .expect("could not resolve remote proxy address");
