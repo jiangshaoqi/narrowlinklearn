@@ -51,7 +51,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     ));
     endpoint.set_default_client_config(client_config);
     print!("Connecting to remote proxy...");
-    let conn = endpoint.connect(remote_proxy_addr, "localhost")?.await?;
+    // server_name is whatcanisay in this case
+    let conn = endpoint.connect(remote_proxy_addr, "whatcanisay")?.await?;
     let conn = Arc::new(conn);
     let conn_clone = Arc::clone(&conn);
 
