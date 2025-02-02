@@ -1,4 +1,4 @@
-use std::{fs, net::Ipv4Addr};
+use std::fs;
 
 use rcgen::{BasicConstraints, Certificate, CertificateParams, DnType, IsCa, KeyPair, KeyUsagePurpose};
 use rustls::pki_types::CertificateDer;

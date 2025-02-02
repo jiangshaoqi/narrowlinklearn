@@ -11,6 +11,9 @@ use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 async fn main() -> Result<(), Box<dyn std::error::Error + Sync + Send>> {
 
     rustls::crypto::aws_lc_rs::default_provider().install_default().expect("install aws lc provider failed");
+
+    // args[1] is the remote proxy address
+    let args: Vec<String> = std::env::args().collect();
     
     // load dummy cert and key
     // if path::Path::new("dummycert.der").exists() == false || path::Path::new("dummykey.der").exists() == false {
@@ -47,7 +50,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Sync + Send>> {
         .keep_alive_interval(Some(Duration::from_secs(5)));
 
     // hardcode setting, to match the remote proxy in local_proxy
-    let server_addr: SocketAddr = "127.0.0.1:1081".parse()?;
+    // let server_addr: SocketAddr = "127.0.0.1:1081".parse()?;
+    // read first argument as server address
+    let server_addr: SocketAddr = args[1].parse()?;
     let endpoint = quinn::Endpoint::server(server_config, server_addr)?;
 
     // in our test, there is only one local connection. Thus no need while loop
