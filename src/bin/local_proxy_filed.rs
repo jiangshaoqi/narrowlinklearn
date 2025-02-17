@@ -18,7 +18,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     rustls::crypto::aws_lc_rs::default_provider().install_default().expect("install aws lc provider failed");
 
-    let remote_proxy_addr = "20.83.146.179"
+    let remote_proxy_addr = "20.83.146.179:443"
         .to_socket_addrs()?
         .next()
         .expect("could not resolve remote proxy address");
