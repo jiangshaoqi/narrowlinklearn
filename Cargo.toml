@@ -16,6 +16,10 @@ time = "0.3.37"
 x509-parser = "=0.17.0"
 
 [[bin]]
+name = "wcis_client_alpha"
+path = "src/bin/local_proxy_filed.rs"
+
+[[bin]]
 name = "localproxy"
 path = "src/bin/local_proxy.rs"
 
