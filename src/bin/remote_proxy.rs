@@ -39,10 +39,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Sync + Send>> {
 
     let ca_cert_path = "wciscert.der";
 
-    let server_crypto = rustls::ServerConfig::builder()
+    let mut server_crypto = rustls::ServerConfig::builder()
         .with_client_cert_verifier(Arc::new(OneCertVerification::new(ca_cert_path)))
         .with_single_cert(server_cert, server_key)?;
-
+    server_crypto.alpn_protocols.push(b"comeonman".to_vec());
     let mut server_config =
         quinn::ServerConfig::with_crypto(Arc::new(QuicServerConfig::try_from(server_crypto)?));
     let transport_config = Arc::get_mut(&mut server_config.transport).unwrap();

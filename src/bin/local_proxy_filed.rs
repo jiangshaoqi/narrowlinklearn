@@ -31,10 +31,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // client cert and client key
     let client_cert = CertificateDer::from(CLIENT_CERT);
     let client_key = PrivateKeyDer::try_from(CLIENT_KEY).expect("cannot convert to private key");
-    let crypto_config = rustls::ClientConfig::builder()
+    let mut crypto_config = rustls::ClientConfig::builder()
         .with_root_certificates(root_store)
         .with_client_auth_cert(vec![client_cert], client_key)
         .expect("cannot build crypto config");
+    crypto_config.alpn_protocols.push(b"comeonman".to_vec());
 
     let client_config = quinn::ClientConfig::new(Arc::new(
         quinn::crypto::rustls::QuicClientConfig::try_from(crypto_config)?,

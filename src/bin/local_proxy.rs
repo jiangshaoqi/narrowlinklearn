@@ -52,11 +52,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let client_key_name = "wcis_client_key.der";
     let client_key = fs::read(client_key_name).expect("cannot read client key");
     let client_key = PrivateKeyDer::try_from(client_key).expect("cannot convert to private key");
-    let crypto_config = rustls::ClientConfig::builder()
+    let mut crypto_config = rustls::ClientConfig::builder()
         .with_root_certificates(root_store)
         .with_client_auth_cert(vec![client_cert], client_key)
         .expect("cannot build crypto config");
-
+    crypto_config.alpn_protocols.push(b"comeonman".to_vec());
     let client_config = quinn::ClientConfig::new(Arc::new(
         quinn::crypto::rustls::QuicClientConfig::try_from(crypto_config)?,
     ));
