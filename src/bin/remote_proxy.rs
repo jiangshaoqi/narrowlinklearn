@@ -55,15 +55,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Sync + Send>> {
     let server_addr: SocketAddr = args[1].parse()?;
     let endpoint = quinn::Endpoint::server(server_config, server_addr)?;
 
-    // in our test, there is only one local connection. Thus no need while loop
-    if let Some(conn) = endpoint.accept().await {
-        println!("waiting for connection");
-        // handle connection, deal with streams, and then parse SOCKS5
-        let connection = conn.await?;
-        loop {
-            let stream = connection.accept_bi().await?;
-            tokio::spawn(handle_socks_stream(stream));
-        }
+    // in our test, there is only one client connection. Thus no need while loop
+    while let Some(conn) = endpoint.accept().await {
+        tokio::spawn(async move {
+            match conn.await {
+                Ok(connection) => {
+                    println!("Connection established");
+                    loop {
+                        if let Ok(stream) = connection.accept_bi().await {
+                            tokio::spawn(handle_socks_stream(stream));
+                        }
+                    }
+                },
+                Err(e) => {
+                    println!("Connection error: {:?}", e);
+                }
+            }
+        });
     }
 
     Ok(())
