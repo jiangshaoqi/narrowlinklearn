@@ -75,7 +75,7 @@ where T: AsyncRead + AsyncWrite + Send + Unpin + 'static
         print!("Client connected\n");
         let mut header = [0u8; 2];
         self.stream.read_exact(&mut header).await?;
-        print!("Header: {:?}\n", header);
+        // print!("Header: {:?}\n", header);
 
         self.socks_version = header[0];
         self.auth_nmethods = header[1];
@@ -97,7 +97,7 @@ where T: AsyncRead + AsyncWrite + Send + Unpin + 'static
     async fn auth(&mut self) -> Result<(), Box<dyn std::error::Error + Sync + Send>> {
         // no auth at this time
         let methods = self.get_avalible_methods().await?;
-        print!("Methods: {:?}\n", methods);
+        // print!("Methods: {:?}\n", methods);
 
         let mut response = [0u8; 2];
 

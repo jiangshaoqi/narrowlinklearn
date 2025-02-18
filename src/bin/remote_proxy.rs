@@ -61,11 +61,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Sync + Send>> {
             match conn.await {
                 Ok(connection) => {
                     println!("Connection established");
-                    loop {
-                        if let Ok(stream) = connection.accept_bi().await {
+                    while let Ok(stream) = connection.accept_bi().await {
                             tokio::spawn(handle_socks_stream(stream));
-                        }
-                    }
+                    };
                 },
                 Err(e) => {
                     println!("Connection error: {:?}", e);
