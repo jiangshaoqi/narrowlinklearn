@@ -64,6 +64,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Sync + Send>> {
                     while let Ok(stream) = connection.accept_bi().await {
                             tokio::spawn(handle_socks_stream(stream));
                     };
+                    println!("Connection closed");
                 },
                 Err(e) => {
                     println!("Connection error: {:?}", e);

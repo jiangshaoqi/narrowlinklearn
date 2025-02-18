@@ -54,7 +54,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         tokio::signal::ctrl_c()
             .await
             .expect("cannot get ctrl + c");
-        println!("Stopping local proxy");
+        println!("Closing local proxy");
+        endpoint.close(0x1d_u32.into(), b"gracefully shutdown");
+        endpoint.wait_idle().await;
+        println!("Local proxy stopped");
     };
 
     tokio::select! {
