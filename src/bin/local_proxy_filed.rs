@@ -18,6 +18,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     rustls::crypto::aws_lc_rs::default_provider().install_default().expect("install aws lc provider failed");
 
+    // local testing
+    // let remote_proxy_addr = "127.0.0.1:443"
+    //     .to_socket_addrs()?
+    //     .next()
+    //     .expect("could not resolve remote proxy address");
+    
     let remote_proxy_addr = "20.83.146.179:443"
         .to_socket_addrs()?
         .next()
@@ -54,10 +60,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         tokio::signal::ctrl_c()
             .await
             .expect("cannot get ctrl + c");
-        println!("Closing local proxy");
-        endpoint.close(0x1d_u32.into(), b"gracefully shutdown");
+        conn_clone.close(0u32.into(), b"gracefully shutdown");
+        endpoint.close(0u32.into(), b"gracefully shutdown");
         endpoint.wait_idle().await;
-        println!("Local proxy stopped");
     };
 
     tokio::select! {
@@ -72,7 +77,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             Ok::<(), Box<dyn std::error::Error + Send + Sync>>(())
         } => {},
         _ = ctrl_c => { 
-            conn_clone.close(0u32.into(), b"gracefully shutdown");
             println!("client stop successfully");
         }
     }
