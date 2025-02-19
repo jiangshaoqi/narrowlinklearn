@@ -1,6 +1,6 @@
 use std::{net::ToSocketAddrs, sync::Arc};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
-use tokio::net::{TcpListener, TcpStream};
+use tokio::{io::AsyncWriteExt, net::{TcpListener, TcpStream}};
 use quinn::{Endpoint, RecvStream, SendStream};
 
 use localproxy::SOCKClient;
@@ -117,11 +117,14 @@ async fn handle_socks_stream(
             let up_channal = tokio::io::copy(&mut socks_read, &mut remote_proxy_write);
             let down_channal = tokio::io::copy(&mut remote_proxy_read, &mut socks_write);
             match tokio::join!(up_channal, down_channal) {
-                (Ok(_), Ok(_)) => (),
-                (Err(e), _) | (_, Err(e)) => {
-                    println!("Error in data transfer: {:?}", e);
-                }
+                
+                (_, _) => {
+                    let _ = remote_proxy_write.shutdown().await;
+                    let _ = socks_write.shutdown().await;
+                    println!("Stream closed");
+                },
             }
+            
         }
         Err(e) => {
             println!("Error in local_init: {:?}", e);

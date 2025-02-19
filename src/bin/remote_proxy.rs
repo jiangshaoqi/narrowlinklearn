@@ -1,5 +1,5 @@
 use std::{fs, net::SocketAddr, sync::Arc, time::Duration};
-use tokio::{net::TcpStream, time::timeout};
+use tokio::{io::AsyncWriteExt, net::TcpStream, time::timeout};
 
 use localproxy::{local_quic::OneCertVerification, ResponseCode, SOCKSReq, SocksReply};
 use quinn::{crypto::rustls::QuicServerConfig, RecvStream, SendStream};
@@ -109,20 +109,25 @@ async fn handle_socks_stream(
             let up_channal = tokio::io::copy(&mut server_read, &mut target_write);
             let down_channal = tokio::io::copy(&mut target_read, &mut server_write);
             match tokio::join!(up_channal, down_channal) {
-                (Ok(_), Ok(_)) => (),
-                (Err(e), _) | (_, Err(e)) => {
-                    println!("Error in data transfer: {:?}", e);
-                }
+                (_, _) => {
+                    let _ = target_write.shutdown().await;
+                    let _ = server_write.shutdown().await;
+                    println!("Stream closed");
+                },
+
+                // (Ok(r1), Ok(r2)) => {
+                //     println!("Data transfered: up: {}, down: {}", r1, r2);
+                // },
+                // (Err(e), Ok(r)) | (Ok(r), Err(e)) => {
+                //     println!("Remainning data: {:?}", r);
+                //     println!("Error in data transfer: {:?}", e);
+                // }
+                // (Err(e1), Err(e2)) => {
+                //     println!("Error in data transfer: {:?}, {:?}", e1, e2);
+                // }
             }
 
-            // match tokio::io::copy_bidirectional(&mut self.stream, &mut target).await {
-            //     // ignore not connected for shutdown error
-            //     Err(e) if e.kind() == std::io::ErrorKind::NotConnected => {
-            //         return Ok(0);
-            //     },
-            //     Err(e) => Err(Box::new(std::io::Error::new(std::io::ErrorKind::Other, e))),
-            //     Ok((_s_to_t, t_to_s)) => Ok(t_to_s as usize),
-            // }
+            
         },
         localproxy::SockCommand::Bind => {
             return Err(Box::new(std::io::Error::new(std::io::ErrorKind::InvalidInput, "Bind not supported")));
