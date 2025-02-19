@@ -90,7 +90,7 @@ fn generate_leaf_ca_sign(
 }
 
 
-
+#[allow(dead_code)]
 fn generate_ca_cert(
     org_name: &str
     // ipv4: Ipv4Addr, 

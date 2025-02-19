@@ -60,9 +60,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         tokio::signal::ctrl_c()
             .await
             .expect("cannot get ctrl + c");
-        conn_clone.close(0u32.into(), b"gracefully shutdown");
-        endpoint.close(0u32.into(), b"gracefully shutdown");
-        endpoint.wait_idle().await;
     };
 
     tokio::select! {
@@ -77,6 +74,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             Ok::<(), Box<dyn std::error::Error + Send + Sync>>(())
         } => {},
         _ = ctrl_c => { 
+            conn_clone.close(0u32.into(), b"gracefully shutdown");
+            endpoint.close(0u32.into(), b"gracefully shutdown");
+            endpoint.wait_idle().await;
             println!("client stop successfully");
         }
     }

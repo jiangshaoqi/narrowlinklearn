@@ -94,6 +94,7 @@ where T: AsyncRead + AsyncWrite + Send + Unpin + 'static
     }
 
 
+    #[allow(unused_variables)]
     async fn auth(&mut self) -> Result<(), Box<dyn std::error::Error + Sync + Send>> {
         // no auth at this time
         let methods = self.get_avalible_methods().await?;
@@ -120,7 +121,7 @@ where T: AsyncRead + AsyncWrite + Send + Unpin + 'static
         match req.command {
             // Use the Proxy to connect to the specified addr/port
             SockCommand::Connect => {
-                print!("Connecting to {:?}", req.addr);
+                print!("Connecting to {:?}", String::from_utf8(req.addr.to_vec()));
                 let sock_addr = addr_to_socket(&req.addr_type, &req.addr, req.port).await?;
 
                 let time_out = if let Some(time_out) = self.timeout {

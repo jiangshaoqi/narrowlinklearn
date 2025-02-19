@@ -64,6 +64,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Sync + Send>> {
                     while let Ok(stream) = connection.accept_bi().await {
                             tokio::spawn(handle_socks_stream(stream));
                     };
+                    println!("Connection disconnected");
+                    connection.closed().await;
                     println!("Connection closed");
                 },
                 Err(e) => {
@@ -85,7 +87,7 @@ async fn handle_socks_stream(
     let socks_req = SOCKSReq::from_quinn_recv_stream(&mut server_read).await?;
     match socks_req.command {
         localproxy::SockCommand::Connect => {
-            println!("Connecting to {:?}", socks_req.addr);
+            println!("Connecting to {:?}", String::from_utf8(socks_req.addr.clone()));
 
             let sock_addr = localproxy::addr_to_socket(&socks_req.addr_type, &socks_req.addr, socks_req.port).await?;
             let time_out = Duration::from_millis(500);
