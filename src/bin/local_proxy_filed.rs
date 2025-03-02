@@ -1,4 +1,4 @@
-use std::{net::ToSocketAddrs, sync::Arc};
+use std::{env::args, net::ToSocketAddrs, sync::Arc};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use tokio::{io::AsyncWriteExt, net::{TcpListener, TcpStream}};
 use quinn::{Endpoint, RecvStream, SendStream};
@@ -18,16 +18,39 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     rustls::crypto::aws_lc_rs::default_provider().install_default().expect("install aws lc provider failed");
 
+    let args = args().collect::<Vec<String>>();
+    
+    let remote_proxy_addr;
+    if args.len() > 1 {
+        remote_proxy_addr = match args[1].to_socket_addrs() {
+            Ok(mut addr_iter) => {
+                addr_iter.next().expect("cannot resolve address")
+            },
+            Err(e) => {
+                eprintln!("Invalid input address: {}\nSet into default remote address", e);
+                "20.83.146.179:443"
+                    .to_socket_addrs()?
+                    .next()
+                    .expect("could not resolve remote proxy address")
+            },
+        };
+    } else {
+        remote_proxy_addr = "20.83.146.179:443"
+            .to_socket_addrs()?
+            .next()
+            .expect("could not resolve remote proxy address");
+    }
+
     // local testing
     // let remote_proxy_addr = "127.0.0.1:443"
     //     .to_socket_addrs()?
     //     .next()
     //     .expect("could not resolve remote proxy address");
     
-    let remote_proxy_addr = "20.83.146.179:443"
-        .to_socket_addrs()?
-        .next()
-        .expect("could not resolve remote proxy address");
+    // let remote_proxy_addr = "20.83.146.179:443"
+    //     .to_socket_addrs()?
+    //     .next()
+    //     .expect("could not resolve remote proxy address");
     let mut endpoint = Endpoint::client((std::net::Ipv4Addr::UNSPECIFIED, 0).into())?;
 
     // fix the certificate store only for proxy
