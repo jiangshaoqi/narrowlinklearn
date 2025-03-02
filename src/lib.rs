@@ -72,7 +72,7 @@ where T: AsyncRead + AsyncWrite + Send + Unpin + 'static
     /// It only checks the validaty and authentication of socks client request,
     /// and then return the valid socks version for future processing.
     pub async fn local_init(&mut self) -> Result<(), Box<dyn std::error::Error + Sync + Send>> {
-        print!("Client connected\n");
+        // print!("Client connected\n");
         let mut header = [0u8; 2];
         self.stream.read_exact(&mut header).await?;
         // print!("Header: {:?}\n", header);

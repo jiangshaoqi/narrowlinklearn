@@ -144,7 +144,7 @@ async fn handle_socks_stream(
                 (_, _) => {
                     let _ = remote_proxy_write.shutdown().await;
                     let _ = socks_write.shutdown().await;
-                    println!("Stream closed");
+                    // println!("Stream closed");
                 },
             }
             
