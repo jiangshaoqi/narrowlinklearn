@@ -24,7 +24,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     // quic setting up, connect to remote proxy
     // let remote_proxy_addr = "127.0.0.1:1081"
-    // let remote_proxy_addr = "20.83.146.179:443"
     //     .to_socket_addrs()?
     //     .next()
     //     .expect("could not resolve remote proxy address");
